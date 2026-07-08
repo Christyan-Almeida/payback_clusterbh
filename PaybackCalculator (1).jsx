@@ -486,8 +486,8 @@ export default function PaybackCalculator() {
           </div>
 
           <p className="mt-6 text-center text-xs" style={{ color: "#3B5C77" }}>
-            Ferramenta interna de pré-análise. Dados não são salvos
-            By Christyan Almeida 2026
+            Ferramenta interna de pré-análise. Dados não são salvos By Christyan Almeida 2026
+            
           </p>
         </div>
       </div>
