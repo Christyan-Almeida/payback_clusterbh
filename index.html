@@ -185,7 +185,7 @@ function PaybackCalculator() {
             e("div", { className: "p-6 sm:p-8 border-b lg:border-b-0 lg:border-r", style: { borderColor: "#2A4A63" } },
               e("h2", { className: "text-xs tracking-widest uppercase mb-6", style: { color: "#5E7C93", fontFamily: "'Inter', sans-serif", letterSpacing: "0.12em" } }, "Dados da proposta"),
               e("div", { className: "space-y-5" },
-                e(Field, { label: "Custo da obra", unit: "R$", value: custo, onChange: setCusto, placeholder: "0,00" }),
+                e(Field, { label: "Custo da obra + equipamentos", unit: "R$", value: custo, onChange: setCusto, placeholder: "0,00" }),
                 e(Field, { label: "Mensalidade", unit: "R$", value: mensalidade, onChange: setMensalidade, placeholder: "0,00" }),
                 e("div", null,
                   e(Field, { label: "Fidelidade", unit: "meses", value: fidelidade, onChange: setFidelidade, placeholder: "36" }),
