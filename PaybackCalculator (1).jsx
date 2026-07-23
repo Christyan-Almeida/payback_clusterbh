@@ -8,6 +8,7 @@ const TIERS = [
   { meses: 12, limite: 4.8 },
   { meses: 24, limite: 9.6 },
   { meses: 36, limite: 14.4 },
+  { meses: 48, limite: 19.2 },
 ];
 
 function parseNumber(v) {
@@ -454,7 +455,7 @@ export default function PaybackCalculator() {
               >
                 Referência de mercado — parâmetro 40%
               </span>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 {TIERS.map((t) => {
                   const active = fNum === t.meses;
                   return (
@@ -486,8 +487,7 @@ export default function PaybackCalculator() {
           </div>
 
           <p className="mt-6 text-center text-xs" style={{ color: "#3B5C77" }}>
-            Ferramenta interna de pré-análise. Dados não são salvos By Christyan Almeida 2026
-            
+            Ferramenta interna de pré-análise · não substitui a aprovação formal de crédito
           </p>
         </div>
       </div>
