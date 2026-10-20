@@ -27,6 +27,14 @@ const TIERS = [
   { meses: 48, limite: 19.2 },
 ];
 
+const IP_PRICE = 120;
+const IP_BLOCKS = [
+  { cidr: "/32", ips: 1 },
+  { cidr: "/30", ips: 4 },
+  { cidr: "/29", ips: 8 },
+  { cidr: "/28", ips: 16 },
+];
+
 function parseNumber(v) {
   if (v === "" || v === null || v === undefined) return null;
   const n = Number(String(v).replace(",", "."));
@@ -91,6 +99,53 @@ function QuickSelect(props) {
   );
 }
 
+function Tabs(props) {
+  const items = [{ id: "plano", label: "Plano" }, { id: "ip", label: "Plano + Bloco de IP" }];
+  return e("div", { className: "flex gap-2" },
+    items.map(function (it) {
+      const active = props.value === it.id;
+      return e("button", {
+        key: it.id,
+        type: "button",
+        onClick: function () { props.onChange(it.id); },
+        className: "flex-1 rounded-md py-2 px-3 text-sm border transition-colors",
+        style: {
+          fontFamily: "'JetBrains Mono', monospace",
+          borderColor: active ? "#FF6A3D" : "#2A4A63",
+          background: active ? "rgba(255,106,61,0.12)" : "transparent",
+          color: active ? "#FF8F66" : "#8FA9BE",
+        }
+      }, it.label);
+    })
+  );
+}
+
+function IpSelect(props) {
+  return e("div", null,
+    e("span", { className: "block text-xs tracking-widest uppercase mb-2", style: { color: "#8FA9BE", fontFamily: "'Inter', sans-serif", letterSpacing: "0.12em" } }, "Bloco de IP · R$ " + IP_PRICE + " por IP"),
+    e("div", { className: "grid grid-cols-4 gap-2" },
+      IP_BLOCKS.map(function (b) {
+        const active = props.value === b.cidr;
+        return e("button", {
+          key: b.cidr,
+          type: "button",
+          onClick: function () { props.onChange(b.cidr); },
+          className: "rounded-md py-2 border text-center transition-colors",
+          style: {
+            fontFamily: "'JetBrains Mono', monospace",
+            borderColor: active ? "#FF6A3D" : "#2A4A63",
+            background: active ? "rgba(255,106,61,0.12)" : "transparent",
+            color: active ? "#FF8F66" : "#8FA9BE",
+          }
+        },
+          e("div", { className: "text-sm" }, b.cidr),
+          e("div", { className: "text-[10px]", style: { color: "#5E7C93" } }, b.ips + (b.ips === 1 ? " IP" : " IPs"))
+        );
+      })
+    )
+  );
+}
+
 function Ruler(props) {
   const fidelidade = props.fidelidade, limite = props.limite, payback = props.payback, aprovado = props.aprovado;
   const hasData = fidelidade && limite !== null && payback !== null;
@@ -139,6 +194,10 @@ function PaybackCalculator() {
   const custo = custoState[0], setCusto = custoState[1];
   const mensalidade = mensalidadeState[0], setMensalidade = mensalidadeState[1];
   const fidelidade = fidelidadeState[0], setFidelidade = fidelidadeState[1];
+  const modoState = useState("plano");
+  const ipState = useState("/32");
+  const modo = modoState[0], setModo = modoState[1];
+  const ip = ipState[0], setIp = ipState[1];
 
   const result = useMemo(function () {
     const c = parseNumber(custo);
@@ -146,104 +205,168 @@ function PaybackCalculator() {
     const f = parseNumber(fidelidade);
     if (!c || !m || !f || c <= 0 || m <= 0 || f <= 0) return null;
 
-    const payback = c / m;
+    const ipBloco = IP_BLOCKS.filter(function (b) { return b.cidr === ip; })[0];
+    const ipCusto = modo === "ip" ? ipBloco.ips * IP_PRICE : 0;
+    const liquida = m - ipCusto;
+    const payback = liquida > 0 ? c / liquida : Infinity;
     const limite = f * 0.4;
     const aprovado = payback <= limite;
     const margemMeses = limite - payback;
     const margemPct = (margemMeses / f) * 100;
-    const mensalidadeMinima = c / limite;
+    const mensalidadeMinima = c / limite + ipCusto;
 
-    return { c: c, m: m, f: f, payback: payback, limite: limite, aprovado: aprovado, margemMeses: margemMeses, margemPct: margemPct, mensalidadeMinima: mensalidadeMinima };
-  }, [custo, mensalidade, fidelidade]);
+    return { c: c, m: m, f: f, payback: payback, limite: limite, aprovado: aprovado, margemMeses: margemMeses, margemPct: margemPct, mensalidadeMinima: mensalidadeMinima, liquida: liquida, ipCusto: ipCusto, ipBloco: ipBloco };
+  }, [custo, mensalidade, fidelidade, modo, ip]);
 
   const fNum = parseNumber(fidelidade);
 
-  return e("div", {
-    className: "min-h-screen w-full flex justify-center py-10 px-4",
-    style: {
-      background: "radial-gradient(circle at 15% 10%, #142B40 0%, #0E1E2E 45%, #0A1622 100%)",
-      backgroundImage: "repeating-linear-gradient(0deg, rgba(143,169,190,0.05) 0px, rgba(143,169,190,0.05) 1px, transparent 1px, transparent 40px), repeating-linear-gradient(90deg, rgba(143,169,190,0.05) 0px, rgba(143,169,190,0.05) 1px, transparent 1px, transparent 40px), radial-gradient(circle at 15% 10%, #142B40 0%, #0E1E2E 45%, #0A1622 100%)",
-      fontFamily: "'Inter', sans-serif",
-    }
-  },
-    e("div", { className: "w-full max-w-4xl" },
-      e("div", { className: "relative" },
+  return e(
+    "div",
+    {
+      className: "min-h-screen w-full flex justify-center py-10 px-4",
+      style: {
+        background: "radial-gradient(circle at 15% 10%, #142B40 0%, #0E1E2E 45%, #0A1622 100%)",
+        backgroundImage: "repeating-linear-gradient(0deg, rgba(143,169,190,0.05) 0px, rgba(143,169,190,0.05) 1px, transparent 1px, transparent 40px), repeating-linear-gradient(90deg, rgba(143,169,190,0.05) 0px, rgba(143,169,190,0.05) 1px, transparent 1px, transparent 40px), radial-gradient(circle at 15% 10%, #142B40 0%, #0E1E2E 45%, #0A1622 100%)",
+        fontFamily: "'Inter', sans-serif",
+      }
+    },
+    e(
+      "div",
+      { className: "w-full max-w-4xl" },
+      e(
+        "div",
+        { className: "relative" },
         e("div", { className: "absolute -top-4 -left-4 w-6 h-6 border-t-2 border-l-2 hidden sm:block", style: { borderColor: "#3B5C77" } }),
         e("div", { className: "absolute -top-4 -right-4 w-6 h-6 border-t-2 border-r-2 hidden sm:block", style: { borderColor: "#3B5C77" } }),
 
-        e("header", { className: "mb-8 px-1" },
+        e(
+          "header",
+          { className: "mb-8 px-1" },
           e("span", { className: "text-xs tracking-[0.25em] uppercase", style: { color: "#FF6A3D", fontFamily: "'JetBrains Mono', monospace" } }, "Memorial de viabilidade"),
           e("h1", { className: "mt-2 text-3xl sm:text-4xl", style: { color: "#EAF2F8", fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700 } }, "Régua de Payback"),
-          e("p", { className: "mt-3 max-w-xl text-sm sm:text-base", style: { color: "#8FA9BE" } },
+          e(
+            "p",
+            { className: "mt-3 max-w-xl text-sm sm:text-base", style: { color: "#8FA9BE" } },
             "Uma venda só é viável quando o custo da obra retorna dentro de ",
             e("span", { style: { color: "#EAF2F8" } }, "40% do prazo de fidelidade"),
             ". Preencha os três dados abaixo para medir a proposta contra essa régua."
           )
         ),
 
-        e("div", { className: "rounded-xl border overflow-hidden", style: { borderColor: "#2A4A63", background: "rgba(20,41,61,0.55)" } },
-          e("div", { className: "grid grid-cols-1 lg:grid-cols-2" },
-            e("div", { className: "p-6 sm:p-8 border-b lg:border-b-0 lg:border-r", style: { borderColor: "#2A4A63" } },
+        e(
+          "div",
+          { className: "rounded-xl border overflow-hidden", style: { borderColor: "#2A4A63", background: "rgba(20,41,61,0.55)" } },
+          e("div", { className: "px-6 sm:px-8 py-4 border-b", style: { borderColor: "#2A4A63" } }, e(Tabs, { value: modo, onChange: setModo })),
+          e(
+            "div",
+            { className: "grid grid-cols-1 lg:grid-cols-2" },
+            e(
+              "div",
+              { className: "p-6 sm:p-8 border-b lg:border-b-0 lg:border-r", style: { borderColor: "#2A4A63" } },
               e("h2", { className: "text-xs tracking-widest uppercase mb-6", style: { color: "#5E7C93", fontFamily: "'Inter', sans-serif", letterSpacing: "0.12em" } }, "Dados da proposta"),
-              e("div", { className: "space-y-5" },
+              e(
+                "div",
+                { className: "space-y-5" },
                 e(Field, { label: "Custo da obra", unit: "R$", value: custo, onChange: setCusto, placeholder: "0,00" }),
-                e(Field, { label: "Mensalidade", unit: "R$", value: mensalidade, onChange: setMensalidade, placeholder: "0,00" }),
-                e("div", null,
+                e(Field, { label: modo === "ip" ? "Mensalidade (com IP incluso)" : "Mensalidade", unit: "R$", value: mensalidade, onChange: setMensalidade, placeholder: "0,00" }),
+                modo === "ip" && e(IpSelect, { value: ip, onChange: setIp }),
+                e(
+                  "div",
+                  null,
                   e(Field, { label: "Fidelidade", unit: "meses", value: fidelidade, onChange: setFidelidade, placeholder: "36" }),
                   e(QuickSelect, { current: fidelidade, onPick: setFidelidade })
                 )
               ),
-              e("div", { className: "mt-8 pt-6 border-t text-xs", style: { borderColor: "#22384C", color: "#4A6478", fontFamily: "'JetBrains Mono', monospace" } },
-                "payback = custo ÷ mensalidade", e("br"), "aprovado ⇔ payback ≤ 0,40 × fidelidade"
+              e(
+                "div",
+                { className: "mt-8 pt-6 border-t text-xs", style: { borderColor: "#22384C", color: "#4A6478", fontFamily: "'JetBrains Mono', monospace" } },
+                modo === "ip" ? "payback = custo ÷ (mensalidade − IPs × R$ " + IP_PRICE + ")" : "payback = custo ÷ mensalidade",
+                e("br"),
+                "aprovado ⇔ payback ≤ 0,40 × fidelidade"
               )
             ),
-            e("div", { className: "p-6 sm:p-8 flex flex-col" },
+            e(
+              "div",
+              { className: "p-6 sm:p-8 flex flex-col" },
               e("h2", { className: "text-xs tracking-widest uppercase mb-6", style: { color: "#5E7C93", fontFamily: "'Inter', sans-serif", letterSpacing: "0.12em" } }, "Resultado"),
               !result
-                ? e("div", { className: "flex-1 flex items-center justify-center text-center text-sm rounded-md border border-dashed", style: { borderColor: "#2A4A63", color: "#5E7C93", minHeight: "180px" } },
-                    "Preencha custo, mensalidade e fidelidade", e("br"), "para calcular o payback."
+                ? e(
+                    "div",
+                    { className: "flex-1 flex items-center justify-center text-center text-sm rounded-md border border-dashed", style: { borderColor: "#2A4A63", color: "#5E7C93", minHeight: "180px" } },
+                    "Preencha custo, mensalidade e fidelidade",
+                    e("br"),
+                    "para calcular o payback."
                   )
-                : e(React.Fragment, null,
-                    e("div", {
-                      className: "inline-flex self-start items-center gap-2 rounded-full px-3 py-1 mb-6",
-                      style: { background: result.aprovado ? "rgba(76,215,135,0.15)" : "rgba(255,90,90,0.15)", border: "1px solid " + (result.aprovado ? "#4CD787" : "#FF5A5A") }
-                    },
+                : e(
+                    React.Fragment,
+                    null,
+                    e(
+                      "div",
+                      {
+                        className: "inline-flex self-start items-center gap-2 rounded-full px-3 py-1 mb-6",
+                        style: { background: result.aprovado ? "rgba(76,215,135,0.15)" : "rgba(255,90,90,0.15)", border: "1px solid " + (result.aprovado ? "#4CD787" : "#FF5A5A") }
+                      },
                       e("span", { style: { width: "8px", height: "8px", borderRadius: "999px", background: result.aprovado ? "#4CD787" : "#FF5A5A", display: "inline-block" } }),
                       e("span", { className: "text-xs tracking-widest uppercase", style: { color: result.aprovado ? "#4CD787" : "#FF5A5A", fontFamily: "'JetBrains Mono', monospace" } }, result.aprovado ? "Aprovado" : "Reprovado")
                     ),
-                    e("div", { className: "grid grid-cols-2 gap-4 mb-2" },
-                      e("div", null,
+                    e(
+                      "div",
+                      { className: "grid grid-cols-2 gap-4 mb-2" },
+                      e(
+                        "div",
+                        null,
                         e("span", { className: "block text-[10px] uppercase tracking-widest mb-1", style: { color: "#5E7C93" } }, "Payback real"),
                         e("span", { className: "text-2xl", style: { fontFamily: "'JetBrains Mono', monospace", color: result.aprovado ? "#4CD787" : "#FF5A5A", fontWeight: 700 } }, formatMeses(result.payback))
                       ),
-                      e("div", null,
+                      e(
+                        "div",
+                        null,
                         e("span", { className: "block text-[10px] uppercase tracking-widest mb-1", style: { color: "#5E7C93" } }, "Limite (40%)"),
                         e("span", { className: "text-2xl", style: { fontFamily: "'JetBrains Mono', monospace", color: "#EAF2F8", fontWeight: 700 } }, formatMeses(result.limite))
                       )
                     ),
-                    e("p", { className: "text-xs mb-6", style: { color: "#8FA9BE" } },
+                    e(
+                      "p",
+                      { className: "text-xs mb-6", style: { color: "#8FA9BE" } },
                       result.aprovado
                         ? "Margem de folga: " + formatMeses(Math.abs(result.margemMeses)) + " (" + result.margemPct.toFixed(1) + "% do prazo)."
-                        : "Excede o limite em " + formatMeses(Math.abs(result.margemMeses)) + " (" + Math.abs(result.margemPct).toFixed(1) + "% do prazo)."
+                        : !isFinite(result.payback)
+                          ? "A mensalidade não cobre nem o custo do bloco de IP."
+                          : "Excede o limite em " + formatMeses(Math.abs(result.margemMeses)) + " (" + Math.abs(result.margemPct).toFixed(1) + "% do prazo)."
                     ),
-                    e(Ruler, { fidelidade: result.f, limite: result.limite, payback: result.payback, aprovado: result.aprovado }),
-                    !result.aprovado && e("div", { className: "mt-6 rounded-md p-4", style: { background: "rgba(255,106,61,0.08)", border: "1px solid rgba(255,106,61,0.35)" } },
-                      e("span", { className: "block text-[10px] uppercase tracking-widest mb-1", style: { color: "#FF8F66" } }, "Mensalidade mínima para aprovar"),
+                    modo === "ip" && e(
+                      "div",
+                      { className: "mb-6 rounded-md p-3 border text-xs", style: { borderColor: "#22384C", fontFamily: "'JetBrains Mono', monospace", color: "#8FA9BE" } },
+                      e("div", { className: "flex justify-between" }, e("span", null, "Mensalidade (com IP)"), e("span", null, formatBRL(result.m))),
+                      e("div", { className: "flex justify-between" }, e("span", null, "− Bloco " + result.ipBloco.cidr + " (" + result.ipBloco.ips + " × " + formatBRL(IP_PRICE) + ")"), e("span", null, "− " + formatBRL(result.ipCusto))),
+                      e("div", { className: "flex justify-between mt-1 pt-1 border-t", style: { borderColor: "#22384C", color: "#EAF2F8" } }, e("span", null, "Líquido para pagar a obra"), e("span", null, formatBRL(result.liquida)))
+                    ),
+                    isFinite(result.payback) && e(Ruler, { fidelidade: result.f, limite: result.limite, payback: result.payback, aprovado: result.aprovado }),
+                    !result.aprovado && e(
+                      "div",
+                      { className: "mt-6 rounded-md p-4", style: { background: "rgba(255,106,61,0.08)", border: "1px solid rgba(255,106,61,0.35)" } },
+                      e("span", { className: "block text-[10px] uppercase tracking-widest mb-1", style: { color: "#FF8F66" } }, modo === "ip" ? "Mensalidade mínima para aprovar (cobrindo o IP)" : "Mensalidade mínima para aprovar"),
                       e("span", { className: "text-xl", style: { fontFamily: "'JetBrains Mono', monospace", color: "#FF8F66", fontWeight: 700 } }, formatBRL(result.mensalidadeMinima))
                     )
                   )
             )
           ),
-          e("div", { className: "border-t px-6 sm:px-8 py-5", style: { borderColor: "#2A4A63" } },
+          e(
+            "div",
+            { className: "border-t px-6 sm:px-8 py-5", style: { borderColor: "#2A4A63" } },
             e("span", { className: "block text-[10px] uppercase tracking-widest mb-3", style: { color: "#5E7C93", fontFamily: "'Inter', sans-serif", letterSpacing: "0.12em" } }, "Referência de mercado — parâmetro 40%"),
-            e("div", { className: "grid grid-cols-2 sm:grid-cols-4 gap-3" },
+            e(
+              "div",
+              { className: "grid grid-cols-2 sm:grid-cols-4 gap-3" },
               TIERS.map(function (t) {
                 const active = fNum === t.meses;
-                return e("div", {
-                  key: t.meses,
-                  className: "rounded-md px-3 py-2 border text-center",
-                  style: { borderColor: active ? "#FF6A3D" : "#22384C", background: active ? "rgba(255,106,61,0.08)" : "transparent" }
-                },
+                return e(
+                  "div",
+                  {
+                    key: t.meses,
+                    className: "rounded-md px-3 py-2 border text-center",
+                    style: { borderColor: active ? "#FF6A3D" : "#22384C", background: active ? "rgba(255,106,61,0.08)" : "transparent" }
+                  },
                   e("div", { className: "text-sm", style: { fontFamily: "'JetBrains Mono', monospace", color: active ? "#FF8F66" : "#EAF2F8" } }, t.meses + "m"),
                   e("div", { className: "text-xs", style: { fontFamily: "'JetBrains Mono', monospace", color: "#5E7C93" } }, "≤ " + t.limite + "m (40%)")
                 );
@@ -251,7 +374,7 @@ function PaybackCalculator() {
             )
           )
         ),
-        e("p", { className: "mt-6 text-center text-xs", style: { color: "#3B5C77" } }, "Direitos reservados · Christyan Almeida 2026")
+        e("p", { className: "mt-6 text-center text-xs", style: { color: "#3B5C77" } }, "Direitos reservados © 2026 · ", e("a", { href: "https://github.com/Christyan-Almeida", target: "_blank", rel: "noopener noreferrer", style: { color: "#FF6A3D" } }, "Christyan Almeida"))
       )
     )
   );
